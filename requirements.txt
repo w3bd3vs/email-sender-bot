@@ -2,8 +2,8 @@
 python-telegram-bot==21.6
 
 # Async PostgreSQL driver + SQLAlchemy async ORM
-psycopg
-SQLAlchemy==2.0.35
+asyncpg==0.29.0
+SQLAlchemy==2.0.52
 
 # Fernet symmetric encryption for secrets at rest
 cryptography==43.0.1
