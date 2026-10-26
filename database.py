@@ -272,6 +272,7 @@ async def save_config(
     smtp_host: Optional[str] = None,
     smtp_port: Optional[int] = None,
     smtp_username: Optional[str] = None,
+    sender_name: Optional[str] = None,
     api_provider: Optional[str] = None,
 ) -> UserConfig:
     """
@@ -313,6 +314,7 @@ async def save_config(
                 "smtp_username": smtp_username,
                 "secret_encrypted": encrypted,
                 "api_provider": api_provider,
+                "sender_name": sender_name,
                 "is_default": should_be_default,
             }
 
@@ -329,6 +331,7 @@ async def save_config(
                         "smtp_username": values["smtp_username"],
                         "secret_encrypted": values["secret_encrypted"],
                         "api_provider": values["api_provider"],
+                        "sender_name": values["sender_name"],
                         # Keep the existing default flag when updating.
                         "is_default": UserConfig.is_default,
                     },
