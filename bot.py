@@ -78,8 +78,10 @@ logger = logging.getLogger(__name__)
     API_KEY,
     API_SENDER,
     CONFIRM_DELETE,
-    SELECT_CONFIG_TARGET
-) = range(11)
+    SELECT_CONFIG_TARGET,
+    SMTP_SENDER_NAME,
+    API_SENDER_NAME,
+) = range(13)
 
 # Compose
 (
@@ -448,23 +450,14 @@ async def smtp_sender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     cfg = context.user_data["new_config"]
     cfg["sender_address"] = address
 
-    status = await update.effective_message.reply_text("🔌 Testing connection…")
-
-    result = await sender.test_smtp(
-        cfg["smtp_host"], cfg["smtp_port"], cfg["smtp_username"], cfg["secret"]
+    # Ensure the sender address is stored in the new config
+    context.user_data["new_config"]["sender_address"] = address
+    await update.effective_message.reply_text(
+        "Step 6/6 - send the <b>sender name</b> (e.g., 'Support Team').\n"
+        "This is the name that appears in the recipient's inbox.",
+        parse_mode=ParseMode.HTML,
     )
-
-    if not result.ok:
-        await status.edit_text(
-            "❌ <b>Test failed - nothing saved</b>\n\n"
-            f"<code>{html.escape(result.message)}</code>",
-            parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("⬅️ Back to Settings", callback_data=CB_SETTINGS)]]
-            ),
-        )
-        context.user_data.pop("new_config", None)
-        return SETTINGS_MENU
+    return SMTP_SENDER_NAME
 
     saved = await db.save_config(
         user_id=update.effective_user.id,
@@ -486,7 +479,47 @@ async def smtp_sender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     )
     return await show_settings(update, context, edit=False)
 
+@restricted
+async def smtp_sender_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    name = (update.effective_message.text or "").strip()
+    context.user_data["new_config"]["sender_name"] = name
 
+    cfg = context.user_data["new_config"]
+    status = await update.effective_message.reply_text("🔌 Testing connection…")
+
+    result = await sender.test_smtp(
+        cfg["smtp_host"], cfg["smtp_port"], cfg["smtp_username"], cfg["secret"]
+    )
+
+    if not result.ok:
+        await status.edit_text(
+            "❌ <b>Test failed - nothing saved</b>\n\n"
+            f"<code>{html.escape(result.message)}</code>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("⬅️ Back to Settings", callback_data=CB_SETTINGS)]]
+            ),
+        )
+        context.user_data.pop("new_config", None)
+        return SETTINGS_MENU
+
+    saved = await db.save_config(
+        user_id=update.effective_user.id,
+        config_type="smtp",
+        sender_address=cfg["sender_address"],
+        secret_plaintext=cfg["secret"],
+        smtp_host=cfg["smtp_host"],
+        smtp_port=cfg["smtp_port"],
+        smtp_username=cfg["smtp_username"],
+        sender_name=cfg.get("sender_name"), # Pass the new name!
+    )
+    context.user_data.pop("new_config", None)
+
+    await status.edit_text(
+        f"✅ <b>SMTP saved</b>\n\nFrom: <code>{html.escape(saved.sender_name or '')} &lt;{html.escape(saved.sender_address)}&gt;</code>",
+        parse_mode=ParseMode.HTML,
+    )
+    return await show_settings(update, context, edit=False)
 # --- API steps -------------------------------------------------------------
 
 @restricted
@@ -540,7 +573,35 @@ async def api_sender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     cfg = context.user_data["new_config"]
     cfg["sender_address"] = address
+    await update.effective_message.reply_text(
+        "Step 4/4 - send the <b>sender name</b> (e.g., 'Support Team').\n"
+        "This is the name that appears in the recipient's inbox.",
+        parse_mode=ParseMode.HTML,
+    )
+    return API_SENDER_NAME
+    saved = await db.save_config(
+        user_id=update.effective_user.id,
+        config_type="api",
+        sender_address=address,
+        secret_plaintext=cfg["secret"],
+        api_provider=cfg.get("api_provider"),
+    )
+    context.user_data.pop("new_config", None)
 
+    await status.edit_text(
+        "✅ <b>API config saved</b>\n\n"
+        f"Provider: <code>{html.escape(saved.api_provider or '')}</code>\n"
+        f"From: <code>{html.escape(saved.sender_address)}</code>\n"
+        f"Default: {'yes ⭐' if saved.is_default else 'no'}",
+        parse_mode=ParseMode.HTML,
+    )
+    return await show_settings(update, context, edit=False)
+@restricted
+async def api_sender_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    name = (update.effective_message.text or "").strip()
+    context.user_data["new_config"]["sender_name"] = name
+
+    cfg = context.user_data["new_config"]
     status = await update.effective_message.reply_text("🔌 Validating API key…")
     result = await sender.test_api(cfg["api_provider"], cfg["secret"])
 
@@ -559,21 +620,18 @@ async def api_sender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     saved = await db.save_config(
         user_id=update.effective_user.id,
         config_type="api",
-        sender_address=address,
+        sender_address=cfg["sender_address"],
         secret_plaintext=cfg["secret"],
-        api_provider=cfg.get("api_provider"),
+        api_provider=cfg["api_provider"],
+        sender_name=cfg.get("sender_name"), # Pass the new name!
     )
     context.user_data.pop("new_config", None)
 
     await status.edit_text(
-        "✅ <b>API config saved</b>\n\n"
-        f"Provider: <code>{html.escape(saved.api_provider or '')}</code>\n"
-        f"From: <code>{html.escape(saved.sender_address)}</code>\n"
-        f"Default: {'yes ⭐' if saved.is_default else 'no'}",
+        f"✅ <b>API config saved</b>\n\nFrom: <code>{html.escape(saved.sender_name or '')} &lt;{html.escape(saved.sender_address)}&gt;</code>",
         parse_mode=ParseMode.HTML,
     )
     return await show_settings(update, context, edit=False)
-
 
 # --- Test / delete / set default ------------------------------------------
 
@@ -1069,9 +1127,11 @@ settings_conv = ConversationHandler(
         SMTP_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, smtp_username)],
         SMTP_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, smtp_password)],
         SMTP_SENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, smtp_sender)],
+        SMTP_SENDER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, smtp_sender_name)],
         API_PROVIDER: [CallbackQueryHandler(api_provider, pattern=f"^{CB_PROV}:")],
         API_KEY: [MessageHandler(filters.TEXT & ~filters.COMMAND, api_key)],
         API_SENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, api_sender)],
+        API_SENDER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, api_sender_name)],
         CONFIRM_DELETE: [CallbackQueryHandler(cb_delete_yes, pattern=f"^{CB_DEL_YES}:")],
         SELECT_CONFIG_TARGET: [CallbackQueryHandler(cb_test), CallbackQueryHandler(cb_delete)],
     },

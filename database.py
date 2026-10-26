@@ -37,6 +37,7 @@ from sqlalchemy import (
     delete,
     select,
     text,
+    true,
     update,
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -174,8 +175,8 @@ class UserConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     type: Mapped[str] = mapped_column(String(16), nullable=False)  # "smtp" | "api"
-    sender_address: Mapped[str] = mapped_column(String(320), nullable=False)
-
+    sender_address: Mapped[str] = mapped_column(String(320), nullable=True)
+    sender_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     # SMTP-only fields
     smtp_host: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     smtp_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

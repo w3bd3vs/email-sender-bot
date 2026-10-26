@@ -193,12 +193,12 @@ def _smtp_test_blocking(host: str, port: int, username: str, password: str) -> T
     try:
         if port == 465:
          server = smtplib.SMTP_SSL(
-    host, port, timeout=SMTP_TIMEOUT, context=ssl._create_unverified_context(cafile=certifi.where())
+    host, port, timeout=SMTP_TIMEOUT, context=ssl.create_default_context(cafile=certifi.where())
 )
         else:
             server = smtplib.SMTP(host, port, timeout=SMTP_TIMEOUT)
             server.ehlo()
-            server.starttls(context=ssl._create_unverified_context())
+            server.starttls(context=ssl.create_default_context())
             server.ehlo()
         try:
             server.login(username, password)
@@ -243,12 +243,12 @@ def _smtp_send_blocking(
     try:
         if port == 465:
             server = smtplib.SMTP_SSL(
-                host, port, timeout=SMTP_TIMEOUT, context=ssl._create_unverified_context()
+                host, port, timeout=SMTP_TIMEOUT, context=ssl.create_default_context()
             )
         else:
             server = smtplib.SMTP(host, port, timeout=SMTP_TIMEOUT)
             server.ehlo()
-            server.starttls(context=ssl._create_unverified_context())
+            server.starttls(context=ssl.create_default_context())
             server.ehlo()
         server.login(username, password)
     except Exception as exc:  # noqa: BLE001
